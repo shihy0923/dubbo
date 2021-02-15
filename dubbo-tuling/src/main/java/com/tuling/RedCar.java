@@ -1,6 +1,5 @@
 package com.tuling;
 
-import org.apache.dubbo.common.Extension;
 import org.apache.dubbo.common.URL;
 
 public class RedCar implements Car {

@@ -192,7 +192,7 @@ public class ReferenceAnnotationBeanPostProcessor extends AnnotationInjectedBean
             beanFactory.registerAlias(serviceBeanName, beanName);
         } else { // Remote @Service Bean
             if (!beanFactory.containsBean(beanName)) {
-                beanFactory.registerSingleton(beanName, referenceBean);
+                beanFactory.registerSingleton(beanName, referenceBean);//放入spring容器的目的是为了满足@Autowired注解，referenceBean其实也是个FactoryBean
             }
         }
     }

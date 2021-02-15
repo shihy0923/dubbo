@@ -16,16 +16,16 @@
  */
 package org.apache.dubbo.common.extension;
 
+import org.apache.dubbo.common.URL;
+import org.apache.dubbo.common.logger.Logger;
+import org.apache.dubbo.common.logger.LoggerFactory;
+import org.apache.dubbo.common.utils.StringUtils;
+
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.apache.dubbo.common.URL;
-import org.apache.dubbo.common.logger.Logger;
-import org.apache.dubbo.common.logger.LoggerFactory;
-import org.apache.dubbo.common.utils.StringUtils;
 
 /**
  * Code generator for Adaptive class
@@ -98,7 +98,7 @@ public class AdaptiveClassCodeGenerator {
         // 遍历接口中的方法，生成代理方法
         Method[] methods = type.getMethods();
         for (Method method : methods) {
-            code.append(generateMethod(method));
+            code.append(generateMethod(method));//看这里，生成方法体
         }
         code.append("}");
 
@@ -157,7 +157,7 @@ public class AdaptiveClassCodeGenerator {
     private String generateMethod(Method method) {
         String methodReturnType = method.getReturnType().getCanonicalName();
         String methodName = method.getName();
-        String methodContent = generateMethodContent(method);
+        String methodContent = generateMethodContent(method);//生成方法体
         String methodArgs = generateMethodArguments(method);
         String methodThrows = generateMethodThrows(method);
         return String.format(CODE_METHOD_DECLARATION, methodReturnType, methodName, methodArgs, methodThrows, methodContent);
@@ -216,7 +216,7 @@ public class AdaptiveClassCodeGenerator {
                 code.append(generateUrlNullCheck(urlTypeIndex));
             } else {
                 // did not find parameter in URL type
-                code.append(generateUrlAssignmentIndirectly(method));
+                code.append(generateUrlAssignmentIndirectly(method));//看这里，如果不满足上面两个情况，即无法获取到URL对象，则抛异常
             }
 
             // 根据这个value去找具体的扩展类
