@@ -3,6 +3,8 @@ package com.tuling;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.extension.ExtensionLoader;
 
+import java.util.List;
+
 public class SpiTest {
     public static void main(String[] args) {
 
@@ -22,20 +24,26 @@ public class SpiTest {
 //
 //        System.out.println(car.getCarName());
 
-        ExtensionLoader<Person> extensionLoader = ExtensionLoader.getExtensionLoader(Person.class);
-        Person person = extensionLoader.getExtension("black");  // BlackPerson
+        //*************************getExtension方法*******************************
+        /*ExtensionLoader<Person> extensionLoader1 = ExtensionLoader.getExtensionLoader(Person.class);
+        Person person = extensionLoader1.getExtension("black");  // BlackPerson
 
-        URL url = new URL("x", "localhost", 8080);
-        url = url.addParameter("car", "black");
+        URL url1 = new URL("x", "localhost", 8080);
+        url1 = url1.addParameter("car", "black");
 
-        /*List<Car> test = extensionLoader.getActivateExtension(url, "car");
+        System.out.println(person.getCar().getCarName());*/
+
+
+        //*************************getActivateExtension方法*******************************
+        ExtensionLoader<Person> extensionLoader2 = ExtensionLoader.getExtensionLoader(Person.class);
+
+        URL url2 = new URL("x", "localhost", 8080);
+
+        url2 = url2.addParameter("person", "black");
+
+        List<Person> test = extensionLoader2.getActivateExtension(url2, "person");
 
         test.stream().forEach(t-> System.out.println(t.toString()));
-
-        System.out.println(car.getCarName(url));  // 代理逻辑*/
-
-
-        System.out.println(person.getCar().getCarName(url));
 
 
 //        ExtensionLoader<Filter> extensionLoader = ExtensionLoader.getExtensionLoader(Filter.class);

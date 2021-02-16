@@ -285,22 +285,22 @@ public class ExtensionLoader<T> {
         return false;
     }
 
-    private boolean isActive(String[] keys, URL url) {//keys就是我们在@Activate中配置的值
-        if (keys.length == 0) {
-            return true;
-        }
-        for (String key : keys) {
-            for (Map.Entry<String, String> entry : url.getParameters().entrySet()) {//从url中获取我们定义的想要获取的元素的值
-                String k = entry.getKey();
-                String v = entry.getValue();
-                if ((k.equals(key) || k.endsWith("." + key))//我们想要获取的值的key等于@Activate中配置的值或者我们想要获取的值以.加上@Activate中配置的值，且我们想要获取的值在url中配置不为空
-                        && ConfigUtils.isNotEmpty(v)) {
-                    return true;
+        private boolean isActive(String[] keys, URL url) {//keys就是我们在@Activate中配置的值
+            if (keys.length == 0) {
+                return true;
+            }
+            for (String key : keys) {
+                for (Map.Entry<String, String> entry : url.getParameters().entrySet()) {//从url中获取我们定义的想要获取的元素的值
+                    String k = entry.getKey();
+                    String v = entry.getValue();
+                    if ((k.equals(key) || k.endsWith("." + key))//我们想要获取的值的key等于@Activate中配置的值或者我们想要获取的值以.加上@Activate中配置的值，且我们想要获取的值在url中配置不为空
+                            && ConfigUtils.isNotEmpty(v)) {
+                        return true;
+                    }
                 }
             }
+            return false;
         }
-        return false;
-    }
 
     /**
      * Get extension's instance. Return <code>null</code> if extension is not found or is not initialized. Pls. note
@@ -931,12 +931,10 @@ public class ExtensionLoader<T> {
         // 如果某个接口没有手动指定一个Adaptive类，那么就自动生成一个Adaptive类文件，此时接口上的方法要使用@Adaptive注解，未使用的@Adaptive注解的方法，方法体是直接抛出异常的
         //生成Adaptive类的前提是接口的方法参数上必须要有URL对象！！！
         /*
-        * package com.tuling;
+*
+* package com.tuling;
 import org.apache.dubbo.common.extension.ExtensionLoader;
-public class Car$Adaptive implements com.tuling.Car {//使用该代理对象的逻辑URL url = new URL("x", "localhost", 8080);   url = url.addParameter("car", "black");  System.out.println(car.getCarName(url));
-public java.lang.String sayHell()  {
-throw new UnsupportedOperationException("The method public abstract java.lang.String com.tuling.Car.sayHell() of interface com.tuling.Car is not adaptive method!");
-}
+public class Car$Adaptive implements com.tuling.Car {
 public java.lang.String getCarName(org.apache.dubbo.common.URL arg0)  {
 if (arg0 == null) throw new IllegalArgumentException("url == null");
 org.apache.dubbo.common.URL url = arg0;
@@ -944,6 +942,9 @@ String extName = url.getParameter("car");
 if(extName == null) throw new IllegalStateException("Failed to get extension (com.tuling.Car) name from url (" + url.toString() + ") use keys([car])");
 com.tuling.Car extension = (com.tuling.Car)ExtensionLoader.getExtensionLoader(com.tuling.Car.class).getExtension(extName);//这里还是会去寻找我们自己自url里面配置的想要扩展的点，即配置文件中配置的key为black 的那个类的实例
 return extension.getCarName(arg0);
+}
+public java.lang.String sayHell()  {
+throw new UnsupportedOperationException("The method public abstract java.lang.String com.tuling.Car.sayHell() of interface com.tuling.Car is not adaptive method!");
 }
 }
 * */

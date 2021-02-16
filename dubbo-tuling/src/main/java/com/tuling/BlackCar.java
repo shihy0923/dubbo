@@ -1,5 +1,6 @@
 package com.tuling;
 
+
 import org.apache.dubbo.common.URL;
 
 public class BlackCar implements Car {

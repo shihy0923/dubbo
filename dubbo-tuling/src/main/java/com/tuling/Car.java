@@ -7,7 +7,7 @@ import org.apache.dubbo.common.extension.SPI;
 @SPI
 public interface Car {
 
-    @Adaptive
+@Adaptive
     String getCarName(URL url);
 
     String sayHell();
