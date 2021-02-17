@@ -25,13 +25,13 @@ public class SpiTest {
 //        System.out.println(car.getCarName());
 
         //*************************getExtension方法*******************************
-        /*ExtensionLoader<Person> extensionLoader1 = ExtensionLoader.getExtensionLoader(Person.class);
+        ExtensionLoader<Person> extensionLoader1 = ExtensionLoader.getExtensionLoader(Person.class);
         Person person = extensionLoader1.getExtension("black");  // BlackPerson
 
         URL url1 = new URL("x", "localhost", 8080);
         url1 = url1.addParameter("car", "black");
 
-        System.out.println(person.getCar().getCarName());*/
+        System.out.println(person.getCar().getCarName(url1));
 
 
         //*************************getActivateExtension方法*******************************
