@@ -152,9 +152,12 @@ public class DubboProtocol extends AbstractProtocol {
             }
             // 这里设置了，service中才能拿到remoteAddress
             RpcContext.getContext().setRemoteAddress(channel.getRemoteAddress());
-            // 执行服务，得到结果
+            // 执行服务，这个invoker是包装了filter 的invoker，会根据单向链表去调用filter，最终调用的是org.apache.dubbo.rpc.proxy.AbstractProxyInvoker.invoke方法得到结果
             Result result = invoker.invoke(inv);
-            // 返回一个CompletableFuture
+            // 返回一个CompletableFuture,Result本身就是一个CompletableFuture.
+            //result.completionFuture().thenApply(Function.identity())这段代码返回的是一个新的CompletableFuture，他的result属性是从result变量中获取的，是个AppResponse对象
+            //result变量是org.apache.dubbo.rpc.proxy.AbstractProxyInvoker.invoke方法中的asyncRpcResult对象
+            //相当于重新包装了一下
             return result.completionFuture().thenApply(Function.identity());
         }
 

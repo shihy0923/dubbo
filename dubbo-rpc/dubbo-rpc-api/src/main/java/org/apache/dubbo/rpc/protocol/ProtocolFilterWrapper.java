@@ -49,7 +49,7 @@ public class ProtocolFilterWrapper implements Protocol {
     }
 
 
-
+    //这里举的例子是服务端的，消费端和服务端都会调用这个方法。
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
         // 根据url获取filter，根据url中的parameters取key为key的value所对应的filter，但是还会匹配group
@@ -57,8 +57,8 @@ public class ProtocolFilterWrapper implements Protocol {
 
         // ConsumerContextFilter--->FutureFilter--->MonitorFilter
         // ConsumerContextFilter用来设置RpcContext
-        //
-
+        //在这里把filter包装成Invoker对象，并且每个Invoker对象有三个个属性，一个是入参传进来的invoker变量(一般是JavassistProxyFactory中，getInvoker方法返回的AbstractProxyInvoker类型的匿名对象，是的，每个filter包装成Invoker对象其实都持有这个对象)，一个是filter，一个是next，filter就是下面遍历出来的每个filter，
+        //next就是上一个filter包装成的Invoker对象。
         if (!filters.isEmpty()) {
             for (int i = filters.size() - 1; i >= 0; i--) {
                 final Filter filter = filters.get(i);
@@ -111,7 +111,7 @@ public class ProtocolFilterWrapper implements Protocol {
                 };
             }
         }
-
+        //最终这个last对象是EchoFilter所包装成的Invoker，最终形成的单向链表是，Invoker(EchoFilter)的next指向------>..........------>Invoker(ExceptionFilter)的next指向------->AbstractProxyInvoker这个匿名对象,这里举的例子是服务端的，消费端和服务端都会调用这个方法。
         return new CallbackRegistrationInvoker<>(last, filters);
     }
 

@@ -18,17 +18,11 @@
  */
 package org.apache.dubbo.demo.provider;
 
-import org.apache.dubbo.config.annotation.Method;
 import org.apache.dubbo.config.annotation.Service;
 import org.apache.dubbo.demo.DemoService;
 import org.apache.dubbo.rpc.RpcContext;
-
-import org.apache.dubbo.rpc.RpcException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class DemoServiceImpl implements DemoService {
@@ -37,7 +31,7 @@ public class DemoServiceImpl implements DemoService {
     @Override
     public String sayHello(String name) {
         logger.info("Hello " + name + ", request from consumer: " + RpcContext.getContext().getRemoteAddress());
-
+        int i = 1 / 0;
         return "Hello " + name + ", response from provider: " + RpcContext.getContext().getLocalAddress();
     }
 

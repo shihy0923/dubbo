@@ -102,6 +102,7 @@ public class HeaderExchangeHandler implements ChannelHandlerDelegate {
         Object msg = req.getData();
         try {
             // 继续向下调用，分异步调用和同步调用，如果是同步则会阻塞，如果是异步则不会阻塞
+            //这个future对象的result属性是个AppRespose对象，里面放了我们的调用结果
             CompletionStage<Object> future = handler.reply(channel, msg);   // 异步执行服务
 
             // 如果是同步调用则直接拿到结果，并发送到channel中去

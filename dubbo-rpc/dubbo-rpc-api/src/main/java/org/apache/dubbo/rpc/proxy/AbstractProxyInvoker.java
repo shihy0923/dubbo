@@ -83,16 +83,17 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
         try {
             // 执行服务，得到一个接口，可能是一个CompletableFuture(表示异步调用)，可能是一个正常的服务执行结果（同步调用）
             // 如果是同步调用会阻塞，如果是异步调用不会阻塞
+            //默认调用的是org.apache.dubbo.rpc.proxy.javassist.JavassistProxyFactory类中getInvoker方法返回的那个匿名对象的doInvoke方法
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
 
-            // 将同步调用的服务执行结果封装为CompletableFuture类型
+            // 把结果value包装成CompletableFuture类型的，不管是同步还是异步的
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
 
-            // 异步RPC结果
+            // 异步RPC结果，AsyncRpcResult是个CompletableFuture的实现类
             AsyncRpcResult asyncRpcResult = new AsyncRpcResult(invocation);
 
             //设置一个回调，如果是异步调用，那么服务执行完成后将执行这里的回调
-            // 不会阻塞
+            // 这个方法会阻塞到，真正的服务执行完成，https://www.jianshu.com/p/c4c30d0ad7bb
             future.whenComplete((obj, t) -> {
                 AppResponse result = new AppResponse();
                 if (t != null) {
@@ -104,7 +105,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                 } else {
                     result.setValue(obj);
                 }
-                // 将服务执行完之后的结果设置到异步RPC结果对象中
+                // 将服务执行完之后的结果设置到异步RPC结果对象中,把result变量的值赋值给asyncRpcResult对象的result变量
                 asyncRpcResult.complete(result);
             });
 
