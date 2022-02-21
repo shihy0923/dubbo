@@ -98,7 +98,38 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
      * Actually，when the {@link ExtensionLoader} init the {@link Protocol} instants,it will automatically wraps two
      * layers, and eventually will get a <b>ProtocolFilterWrapper</b> or <b>ProtocolListenerWrapper</b>
      */
-    private static final Protocol REF_PROTOCOL = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();
+    /*
+    * package org.apache.dubbo.rpc;
+import org.apache.dubbo.common.extension.ExtensionLoader;
+public class Protocol$Adaptive implements org.apache.dubbo.rpc.Protocol {
+public void destroy()  {
+throw new UnsupportedOperationException("The method public abstract void org.apache.dubbo.rpc.Protocol.destroy() of interface org.apache.dubbo.rpc.Protocol is not adaptive method!");
+}
+public int getDefaultPort()  {
+throw new UnsupportedOperationException("The method public abstract int org.apache.dubbo.rpc.Protocol.getDefaultPort() of interface org.apache.dubbo.rpc.Protocol is not adaptive method!");
+}
+public org.apache.dubbo.rpc.Exporter export(org.apache.dubbo.rpc.Invoker arg0) throws org.apache.dubbo.rpc.RpcException {
+if (arg0 == null) throw new IllegalArgumentException("org.apache.dubbo.rpc.Invoker argument == null");
+if (arg0.getUrl() == null) throw new IllegalArgumentException("org.apache.dubbo.rpc.Invoker argument getUrl() == null");
+org.apache.dubbo.common.URL url = arg0.getUrl();
+String extName = ( url.getProtocol() == null ? "dubbo" : url.getProtocol() );
+if(extName == null) throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.Protocol) name from url (" + url.toString() + ") use keys([protocol])");
+org.apache.dubbo.rpc.Protocol extension = (org.apache.dubbo.rpc.Protocol)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.Protocol.class).getExtension(extName);
+return extension.export(arg0);
+}
+public org.apache.dubbo.rpc.Invoker refer(java.lang.Class arg0, org.apache.dubbo.common.URL arg1) throws org.apache.dubbo.rpc.RpcException {
+if (arg1 == null) throw new IllegalArgumentException("url == null");
+org.apache.dubbo.common.URL url = arg1;
+String extName = ( url.getProtocol() == null ? "dubbo" : url.getProtocol() );
+if(extName == null) throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.Protocol) name from url (" + url.toString() + ") use keys([protocol])");
+org.apache.dubbo.rpc.Protocol extension = (org.apache.dubbo.rpc.Protocol)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.Protocol.class).getExtension(extName);
+return extension.refer(arg0, arg1);
+}
+}
+    *
+    * */
+
+    private static final Protocol REF_PROTOCOL = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();//REF_PROTOCOL的结构是，dubbo生成的代理对象------>ProtocolFilterWrapper-->ProtocolListenerWrapper---->上面的代码中，根据url中的protocol属性获取对应的扩展点对象
 
     /**
      * The {@link Cluster}'s implementation with adaptive functionality, and actually it will get a {@link Cluster}'s
@@ -401,11 +432,11 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 // if protocols not injvm checkRegistry
                 if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())){
                     checkRegistry();
-                    // 加载注册中心地址
+                    // 加载注册中心地址，里面放了注册中心的信息，最终的大概是，registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-consumer-application&dubbo=2.0.2&pid=9116&registry=zookeeper&release=2.7.0&timestamp=1615367618767
                     List<URL> us = loadRegistries(false);
                     if (CollectionUtils.isNotEmpty(us)) {
                         for (URL u : us) {
-                            URL monitorUrl = loadMonitor(u);
+                            URL monitorUrl = loadMonitor(u);//MonitorConfig对象，即监控中心对象
                             if (monitorUrl != null) {
                                 map.put(MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
                             }
@@ -432,6 +463,8 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null; // 用来记录urls中最后一个注册中心url
                 for (URL url : urls) {
+                    //REF_PROTOCOL的结构是，dubbo生成的代理对象------>ProtocolFilterWrapper-->ProtocolListenerWrapper---->RegistryProtocol或DubboProtocol对象，根据ulr中的protocol属性来确认，如果protocol属性的值为registry则是RegistryProtocol对象，如果是dubbo，则是DubboProtocol对象
+                    //invokers里面放的invoker的结构是MockClusterInvoker(包含了一个RegistryDirectory)---->FailoverClusterInvoker(包含了同一个RegistryDirectory)，RegistryDirectory对象里面又包含了过滤器和DubboInvoker
                     invokers.add(REF_PROTOCOL.refer(interfaceClass, url));
 
                     if (REGISTRY_PROTOCOL.equals(url.getProtocol())) {
@@ -445,6 +478,10 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                     URL u = registryURL.addParameter(CLUSTER_KEY, RegistryAwareCluster.NAME);
                     // StaticDirectory表示静态服务目录，里面的invokers是不会变的, 生成一个RegistryAwareCluster
                     // The invoker wrap relation would be: RegistryAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, will execute route) -> Invoker
+                    //这个cluster是个adaptive类型的，它是个dubbo代理对象，它的逻辑中有段代码，
+                    //org.apache.dubbo.common.URL url = directory.getUrl();//directory就是形参的directory
+                    //String extName = url.getParameter("cluster", "failover");//这里key为cluster的值不为空，值为registryaware，所以
+                    //org.apache.dubbo.rpc.cluster.Cluster extension = (org.apache.dubbo.rpc.cluster.Cluster)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.cluster.Cluster.class).getExtension(extName);所以会去调用扩展点名称为registryaware的Cluster接口的实现类，即org.apache.dubbo.rpc.cluster.support.RegistryAwareCluster的join方法
                     invoker = CLUSTER.join(new StaticDirectory(u, invokers));
                 } else { // not a registry url, must be direct invoke.
                     // 如果不存在注册中心地址, 生成一个FailoverClusterInvoker
@@ -468,7 +505,8 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             URL consumerURL = new URL(CONSUMER_PROTOCOL, map.remove(REGISTER_IP_KEY), 0, map.get(INTERFACE_KEY), map);
             metadataReportService.publishConsumer(consumerURL);
         }
-        // create service proxy
+        // create service proxy 这里会调用到JavassistProxyFactory的getProxy方法，方法里面用了jdk的动态代理，把这里的invoker传给了InvokerInvocationHandler这个InvocationHandler实现类，所以后续利用这个代理对象进行方法调用的时候，就会调用到这个InvokerInvocationHandler的invoke方法，然后里面的逻辑就是拿到我们的invoker对象
+        //进行调用
         return (T) PROXY_FACTORY.getProxy(invoker);
     }
 

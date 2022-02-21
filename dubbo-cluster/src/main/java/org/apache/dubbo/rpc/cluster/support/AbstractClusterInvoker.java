@@ -242,8 +242,8 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
 
-        List<Invoker<T>> invokers = list(invocation);
-        LoadBalance loadbalance = initLoadBalance(invokers, invocation);
+        List<Invoker<T>> invokers = list(invocation);//根据路由链获取合适的invoker
+        LoadBalance loadbalance = initLoadBalance(invokers, invocation);//获取负载均衡的策略，大概的逻辑是根据invokers这个集合中的第一个元素，获取它的url，看url里面有没方法名+.loadbalance这个key对应的值，如果没有，默认是random，即org.apache.dubbo.rpc.cluster.loadbalance.RandomLoadBalance
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
         return doInvoke(invocation, invokers, loadbalance);
     }
@@ -294,7 +294,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
     protected LoadBalance initLoadBalance(List<Invoker<T>> invokers, Invocation invocation) {
         if (CollectionUtils.isNotEmpty(invokers)) {
             return ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(invokers.get(0).getUrl()
-                    .getMethodParameter(RpcUtils.getMethodName(invocation), LOADBALANCE_KEY, DEFAULT_LOADBALANCE));
+                    .getMethodParameter(RpcUtils.getMethodName(invocation), LOADBALANCE_KEY, DEFAULT_LOADBALANCE));//获取负载均衡的策略，默认是random，即org.apache.dubbo.rpc.cluster.loadbalance.RandomLoadBalance
         } else {
             return ExtensionLoader.getExtensionLoader(LoadBalance.class).getExtension(DEFAULT_LOADBALANCE);
         }

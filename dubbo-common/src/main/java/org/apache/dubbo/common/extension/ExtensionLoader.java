@@ -239,7 +239,7 @@ public class ExtensionLoader<T> {
                 if (isMatchGroup(group, activateGroup)//group是入参传入的值
                         && !names.contains(name)//names是我们入参
                         && !names.contains(REMOVE_VALUE_PREFIX + name)
-                        // 查看url的参数中是否存在key是否为activate的Value，并且url中对应的value不为空
+                        // 查看url的参数中是否存在key是否为activate注解中的Value属性配置的值，并且url中这个key对应的value不为空
                         && isActive(activateValue, url)) {
                     exts.add(getExtension(name));
                 }

@@ -93,9 +93,9 @@ public class DefaultFuture extends CompletableFuture<Object> {
      * @return a new DefaultFuture
      */
     public static DefaultFuture newFuture(Channel channel, Request request, int timeout) {
-        final DefaultFuture future = new DefaultFuture(channel, request, timeout);
+        final DefaultFuture future = new DefaultFuture(channel, request, timeout);//这个timeout就是客户端的超时时间
         // timeout check
-        timeoutCheck(future);
+        timeoutCheck(future);//在这里会启动一个TimeoutCheckTask，根据timeout来判断客户端是否超时
         return future;
     }
 
@@ -246,12 +246,12 @@ public class DefaultFuture extends CompletableFuture<Object> {
 
         @Override
         public void run(Timeout timeout) {
-            DefaultFuture future = DefaultFuture.getFuture(requestID);
+            DefaultFuture future = DefaultFuture.getFuture(requestID);//到了我们设置的timeout，这个方法会被调用
             if (future == null || future.isDone()) {
                 return;
             }
             // create exception response.
-            Response timeoutResponse = new Response(future.getId());
+            Response timeoutResponse = new Response(future.getId());//构造一个Response对象，告诉我们超时了
             // set timeout status.
             timeoutResponse.setStatus(future.isSent() ? Response.SERVER_TIMEOUT : Response.CLIENT_TIMEOUT);
             timeoutResponse.setErrorMessage(future.getTimeoutMessage(true));

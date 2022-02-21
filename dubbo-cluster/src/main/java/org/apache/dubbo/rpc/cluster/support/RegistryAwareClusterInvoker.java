@@ -55,7 +55,7 @@ public class RegistryAwareClusterInvoker<T> extends AbstractClusterInvoker<T> {
         // If none of the invokers has a local signal, pick the first one available.
         // 如果没有default，则取第一个
         for (Invoker<T> invoker : invokers) {
-            // 如果对应的注册中心中没有当前调用的服务信息，则不可用
+            // 如果对应的注册中心中没有当前调用的服务信息，则不可用，即判断这个invoker对应的tcp连接是否还在
             if (invoker.isAvailable()) {
                 return invoker.invoke(invocation);
             }

@@ -45,7 +45,7 @@ public class ConsumerContextFilter extends ListenableFilter {
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
-        // 设置RpcContext参数
+        // 设置RpcContext参数，ConsumerContextFilter为消费者把一些上下文信息设置到当前线程的RpcContext对象中，包括invocation、localhost、等
         RpcContext.getContext()
                 .setInvoker(invoker)
                 .setInvocation(invocation)

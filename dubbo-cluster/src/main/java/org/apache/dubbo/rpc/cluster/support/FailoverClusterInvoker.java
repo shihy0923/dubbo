@@ -58,7 +58,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
         String methodName = RpcUtils.getMethodName(invocation);
-        int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;
+        int len = getUrl().getMethodParameter(methodName, RETRIES_KEY, DEFAULT_RETRIES) + 1;//客户端重试次数，默认三次
         if (len <= 0) {
             len = 1;
         }
@@ -75,7 +75,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 // check again
                 checkInvokers(copyInvokers, invocation);
             }
-            Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);
+            Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);//根据负载均衡策略选择invoker，默认random，对应的实现类是org.apache.dubbo.rpc.cluster.loadbalance.RandomLoadBalance
             invoked.add(invoker);
             RpcContext.getContext().setInvokers((List) invoked);
             try {

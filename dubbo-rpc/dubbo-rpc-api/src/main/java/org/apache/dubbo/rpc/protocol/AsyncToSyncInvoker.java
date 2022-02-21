@@ -50,7 +50,7 @@ public class AsyncToSyncInvoker<T> implements Invoker<T> {
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         // 异步转同步
-
+        //这个invoker对象就是正在的DubboInvoker对象
         Result asyncResult = invoker.invoke(invocation);  // AsyncRpcResult--->CompletableFuture
 
         try {

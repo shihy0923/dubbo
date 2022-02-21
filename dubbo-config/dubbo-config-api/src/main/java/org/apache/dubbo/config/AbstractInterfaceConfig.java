@@ -366,7 +366,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                         map.put(PROTOCOL_KEY, DUBBO_PROTOCOL);
                     }
 
-                    // 构造注册中心url，地址+参数
+                    // 构造注册中心url，地址+参数,可以理解成是将map里面的信息通过字符串拼接在一起，如，zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-consumer-application&dubbo=2.0.2&pid=9116&release=2.7.0&timestamp=1615367618767
                     List<URL> urls = UrlUtils.parseURLs(address, map);
 
                     for (URL url : urls) {

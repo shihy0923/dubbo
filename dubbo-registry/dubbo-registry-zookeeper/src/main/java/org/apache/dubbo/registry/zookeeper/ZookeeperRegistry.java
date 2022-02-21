@@ -130,8 +130,8 @@ public class ZookeeperRegistry extends FailbackRegistry {
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
         try {
+            // 订阅所有服务
             if (ANY_VALUE.equals(url.getServiceInterface())) {
-                // 订阅所有服务
 
                 String root = toRootPath();
                 ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
@@ -183,7 +183,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                         listeners.putIfAbsent(listener, (parentPath, currentChilds) -> ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds)));
                         zkListener = listeners.get(listener);
                     }
-                    // 创建zk上路径
+                    // 根据path，去zk上创建路径，节点不是临时节点
                     zkClient.create(path, false);
 
                     // 添加真正跟zk相关的ChildListener,ChildListener中的逻辑就是监听到zk上数据发生了变化后会触发的逻辑
@@ -264,16 +264,13 @@ public class ZookeeperRegistry extends FailbackRegistry {
         if (ANY_VALUE.equals(url.getParameter(CATEGORY_KEY))) {
             categories = new String[]{PROVIDERS_CATEGORY, CONSUMERS_CATEGORY, ROUTERS_CATEGORY, CONFIGURATORS_CATEGORY};
         } else {
-            categories = url.getParameter(CATEGORY_KEY, new String[]{DEFAULT_CATEGORY});
+            categories = url.getParameter(CATEGORY_KEY, new String[]{DEFAULT_CATEGORY});//categories的值一般为 providers,configurators,routers
         }
 
-        // 根据不同的categories生成zk上对应的路径，比如：
-        // url的category参数的值如果是configurators， 那表示要监听/dubbo/org.apache.dubbo.demo.DemoService/configurators路径
-        // url的category参数的值如果是providers， 那表示要监听/dubbo/org.apache.dubbo.demo.DemoService/providers路径
-        // url的category参数的值如果是consumers， 那表示要监听/dubbo/org.apache.dubbo.demo.DemoService/consumers路径
-        // url的category参数的值如果是routers， 那表示要监听/dubbo/org.apache.dubbo.demo.DemoService/routers路径
-
-
+        // 根据不同的categories生成zk上对应的路径，最终，paths的值为，
+        // /dubbo/org.apache.dubbo.demo.DemoService/providers
+        // /dubbo/org.apache.dubbo.demo.DemoService/configurators
+        // /dubbo/org.apache.dubbo.demo.DemoService/routers
         String[] paths = new String[categories.length];
         for (int i = 0; i < categories.length; i++) {
             paths[i] = toServicePath(url) + PATH_SEPARATOR + categories[i];

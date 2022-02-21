@@ -167,9 +167,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     public void subscribe(URL url) {
         setConsumerUrl(url);
-        CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this); // 监听consumer应用
-        serviceConfigurationListener = new ReferenceConfigurationListener(this, url); // 监听所引入的服务的动态配置
-        registry.subscribe(url, this);
+        //下面的三行代码，会主动去拿zk节点中的数据，并且监听这些节点
+        CONSUMER_CONFIGURATION_LISTENER.addNotifyListener(this); // 监听consumer应用，的configurators，新版本，监听的节点名称是/dubbo/config key是dubbo-demo-consumer-application.configurators
+        serviceConfigurationListener = new ReferenceConfigurationListener(this, url); // 监听所引入的服务的动态配置的的configurators，新版本  监听的节点名称是/dubbo/config key是org.apache.dubbo.demo.DemoService::.configurators
+        registry.subscribe(url, this);//监听/dubbo/org.apache.dubbo.demo.DemoService/providers，/dubbo/org.apache.dubbo.demo.DemoService/configurators，/dubbo/org.apache.dubbo.demo.DemoService/routers
     }
 
 
@@ -232,13 +233,13 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         // 获取服务提供者URL
         List<URL> providerURLs = categoryUrls.getOrDefault(PROVIDERS_CATEGORY, Collections.emptyList());
-        refreshOverrideAndInvoker(providerURLs);
+        refreshOverrideAndInvoker(providerURLs);//看这里
     }
 
     private void refreshOverrideAndInvoker(List<URL> urls) {
         // mock zookeeper://xxx?mock=return null
         overrideDirectoryUrl();
-        refreshInvoker(urls);
+        refreshInvoker(urls);//看这里
     }
 
     /**
@@ -277,7 +278,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (invokerUrls.isEmpty()) {
                 return;
             }
-            // 这里会先按Protocol进行过滤，并且调用DubboProtocol.refer方法得到DubboInvoker
+            // 这里会先按Protocol进行过滤，并且调用DubboProtocol.refer方法得到DubboInvoker,这里就放着所有根据providers节点生成的DubboInvoer
+            //newUrlInvokerMap中的key就是providers节点和动态配置中的值合并后的url的字符串形式，value就是根据这个url生成的DubboInvoker
             Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
 
             /**
@@ -377,7 +379,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             return newUrlInvokerMap;
         }
         Set<String> keys = new HashSet<>();
-        String queryProtocols = this.queryMap.get(PROTOCOL_KEY);
+        String queryProtocols = this.queryMap.get(PROTOCOL_KEY);//看看@Reference注解上是否给protocol属性赋值，即是否定义了该消费者要调用的服务类型
 
         // 遍历当前服务所有的服务提供者URL
         for (URL providerUrl : urls) {
@@ -388,7 +390,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
                 // 当前消费者如果手动配置了Protocol，那么则进行匹配
                 for (String acceptProtocol : acceptProtocols) {
-                    if (providerUrl.getProtocol().equals(acceptProtocol)) {
+                    if (providerUrl.getProtocol().equals(acceptProtocol)) {//如果这个服务提供者的protocol和消费者的protocol一致，则说明是消费者想要的
                         accept = true;
                         break;
                     }
@@ -410,8 +412,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                 continue;
             }
 
-            URL url = mergeUrl(providerUrl);
+            URL url = mergeUrl(providerUrl);//根据动态配置去获取最终真正的url
 
+            //key的值为dubbo://192.168.3.2:20881/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-consumer-application&bean.name=ServiceBean:org.apache.dubbo.demo.DemoService&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello&pid=2188&register.ip=192.168.3.2&release=2.7.0&remote.application=dubbo-demo-provider1-application1&side=consumer&sticky=false&timeout=30000&timestamp=1615363410263
             String key = url.toFullString(); // The parameter urls are sorted
             if (keys.contains(key)) { // Repeated url
                 continue;
@@ -421,7 +424,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             Map<String, Invoker<T>> localUrlInvokerMap = this.urlInvokerMap; // local reference
             Invoker<T> invoker = localUrlInvokerMap == null ? null : localUrlInvokerMap.get(key);
 
-            // 如果当前服务提供者URL没有生产过Invoker
+            // 如果没有根据当前服务提供者URL产生过Invoker
             if (invoker == null) { // Not in the cache, refer again
                 try {
                     boolean enabled = true;
@@ -445,7 +448,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             }
         }
         keys.clear();
-        return newUrlInvokerMap;
+        return newUrlInvokerMap;//这里就放在根据providers节点生成的dubboInvoker
     }
 
     /**
@@ -457,13 +460,13 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     private URL mergeUrl(URL providerUrl) {
         providerUrl = ClusterUtils.mergeUrl(providerUrl, queryMap); // Merge the consumer side parameters
 
-        providerUrl = overrideWithConfigurator(providerUrl);
+        providerUrl = overrideWithConfigurator(providerUrl);//根据动态配置去覆盖消费者的参数
 
         providerUrl = providerUrl.addParameter(Constants.CHECK_KEY, String.valueOf(false)); // Do not check whether the connection is successful or not, always create Invoker!
 
         // The combination of directoryUrl and override is at the end of notify, which can't be handled here
         this.overrideDirectoryUrl = this.overrideDirectoryUrl.addParametersIfAbsent(providerUrl.getParameters()); // Merge the provider side parameters
-
+        //经过上几步的步补充和覆盖，得到了真正的服务的url
         if ((providerUrl.getPath() == null || providerUrl.getPath()
                 .length() == 0) && DUBBO_PROTOCOL.equals(providerUrl.getProtocol())) { // Compatible version 1.0
             //fix by tony.chenl DUBBO-44
@@ -485,14 +488,14 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
     private URL overrideWithConfigurator(URL providerUrl) {
         // override url with configurator from "override://" URL for dubbo 2.6 and before
-        providerUrl = overrideWithConfigurators(this.configurators, providerUrl);
+        providerUrl = overrideWithConfigurators(this.configurators, providerUrl);//老版本的
 
         // override url with configurator from configurator from "app-name.configurators"
-        providerUrl = overrideWithConfigurators(CONSUMER_CONFIGURATION_LISTENER.getConfigurators(), providerUrl);
+        providerUrl = overrideWithConfigurators(CONSUMER_CONFIGURATION_LISTENER.getConfigurators(), providerUrl);//新版本的，当前消费者应用的动态配置
 
         // override url with configurator from configurators from "service-name.configurators"
         if (serviceConfigurationListener != null) {
-            providerUrl = overrideWithConfigurators(serviceConfigurationListener.getConfigurators(), providerUrl);
+            providerUrl = overrideWithConfigurators(serviceConfigurationListener.getConfigurators(), providerUrl);//新版本的，当前消费的这个服务的动态配置
         }
 
         return providerUrl;

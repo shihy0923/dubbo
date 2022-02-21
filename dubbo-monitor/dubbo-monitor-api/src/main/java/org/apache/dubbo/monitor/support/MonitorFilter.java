@@ -87,7 +87,7 @@ public class MonitorFilter extends ListenableFilter {
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         if (invoker.getUrl().hasParameter(MONITOR_KEY)) {
             invocation.setAttachment(MONITOR_FILTER_START_TIME, String.valueOf(System.currentTimeMillis()));
-            // 方法的执行次数+1
+            // 方法的执行次数+1，监控并统计所有的接口的调用情况，如成功、失败、耗时。后续DubboMoniter会定时把该过滤器收集的数据发送到Dubbo-Monitor服务上
             getConcurrent(invoker, invocation).incrementAndGet(); // count up
         }
         return invoker.invoke(invocation); // proceed invocation chain

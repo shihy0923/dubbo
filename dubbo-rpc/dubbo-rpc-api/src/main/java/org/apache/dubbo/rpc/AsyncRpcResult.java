@@ -164,7 +164,7 @@ public class AsyncRpcResult extends AbstractResult {
     public void subscribeTo(CompletableFuture<?> future) {
         future.whenComplete((obj, t) -> {
             if (t != null) {
-                this.completeExceptionally(t);
+                this.completeExceptionally(t);//这个this就是前面的asyncRpcResult对象
             } else {
                 this.complete((Result) obj);
             }

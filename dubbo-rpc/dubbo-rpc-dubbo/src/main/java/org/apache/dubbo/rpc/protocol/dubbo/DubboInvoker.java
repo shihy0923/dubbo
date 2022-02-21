@@ -106,6 +106,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 CompletableFuture<Object> responseFuture = currentClient.request(inv, timeout);
 
                 // responseFuture会完成后会调用asyncRpcResult中的方法，这里并不会阻塞，如果要达到阻塞的效果在外层使用asyncRpcResult去控制
+                //对responseFuture和asyncRpcResult做了绑定，会在后面的unipush方法中的 if (!this.tryPushStack(c))中，将CompletableFuture.UniWhenComplete压入responseFuture的stack属性，CompletableFuture.UniWhenComplete里面的fn属性包含了subscribeTo方法里面的那个lamda对象，lamda对象又包含了asyncRpcResult
                 asyncRpcResult.subscribeTo(responseFuture);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter
                 FutureContext.getContext().setCompatibleFuture(responseFuture);

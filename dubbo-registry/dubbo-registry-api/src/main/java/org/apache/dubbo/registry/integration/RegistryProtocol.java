@@ -450,8 +450,8 @@ public class RegistryProtocol implements Protocol {
         // 从registry://的url中获取对应的注册中心，比如zookeeper， 默认为dubbo，dubbo提供了自带的注册中心实现
         // url由 registry:// 改变为---> zookeeper://
         url = URLBuilder.from(url)
-                .setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY))
-                .removeParameter(REGISTRY_KEY)
+                .setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY))//从parameters属性中获取key为registry的值，如果用的是zk，这个值为zookeeper
+                .removeParameter(REGISTRY_KEY)//从parameters属性中删除key为registry的值
                 .build();
 
         // 拿到注册中心实现，ZookeeperRegistry
@@ -462,10 +462,13 @@ public class RegistryProtocol implements Protocol {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
-        // qs表示 queryString, 表示url中的参数，表示消费者引入服务时所配置的参数
+        // qs表示 queryString, 表示url中的参数，表示@Reference注解中消费者引入服务时所配置的参数，
+        //url的parameters属性中key为refer的属性的值为application%3Ddubbo-demo-consumer-application%26dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D9116%26register.ip%3D192.168.3.2%26release%3D2.7.0%26side%3Dconsumer%26sticky%3Dfalse%26timeout%3D30000%26timestamp%3D1615367569601
+        //getParameterAndDecoded这个方法，获取这个refer这个key对应的value，并解码成map
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
 
         // group="a,b" or group="*"
+        //看@Reference注解中是否配置了group这个属性的值
         String group = qs.get(GROUP_KEY);
         if (group != null && group.length() > 0) {
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
@@ -474,7 +477,8 @@ public class RegistryProtocol implements Protocol {
             }
         }
 
-        // 这里的cluster是cluster的Adaptive对象
+        // 这里的cluster是cluster的Adaptive对象,结构是，dubbo帮我们生成的代理对象---->MockClusterWrapper---->FailoverCluster
+        //
         return doRefer(cluster, registry, type, url);
     }
 
@@ -504,12 +508,12 @@ public class RegistryProtocol implements Protocol {
         // 引入服务所配置的参数
         Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
 
-        // 消费者url
+        // 消费者url,大概结构是consumer://192.168.3.2/org.apache.dubbo.demo.DemoService?application=dubbo-demo-consumer-application&dubbo=2.0.2&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello&pid=9580&release=2.7.0&side=consumer&sticky=false&timeout=30000&timestamp=1615442032599
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
             directory.setRegisteredConsumerUrl(getRegisteredConsumerUrl(subscribeUrl, url));
 
-            // 注册简化后的消费url
+            // 向注册中心注册简化后的消费url
             registry.register(directory.getRegisteredConsumerUrl());
         }
 
@@ -517,7 +521,7 @@ public class RegistryProtocol implements Protocol {
         // 路由链是动态服务目录中的一个属性，通过路由链可以过滤某些服务提供者
         directory.buildRouterChain(subscribeUrl);
 
-        // 服务目录需要订阅的几个路径
+        // 服务目录需要订阅的几个路径，即消费者需要订阅的几个目录，在这里回去注册中心拉去服务提供者的数据
         // 当前所引入的服务的消费应用目录：/dubbo/config/dubbo/dubbo-demo-consumer-application.configurators
         // 当前所引入的服务的动态配置目录：/dubbo/config/dubbo/org.apache.dubbo.demo.DemoService:1.1.1:g1.configurators
         // 当前所引入的服务的提供者目录：/dubbo/org.apache.dubbo.demo.DemoService/providers
@@ -526,7 +530,12 @@ public class RegistryProtocol implements Protocol {
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
-        // 利用传进来的cluster，join得到invoker,
+        // 利用传进来的cluster，join得到invoker,这个cluster的结构是，dubbo的代理对象--->MockClusterWrapper----->FailoverCluster
+        //这个invoker的结构是，MockClusterInvoker---->FailoverClusterInvoker,这两个invoker都包含了directory对象，directory对象里面包含了过滤器，和DubboInvoker
+        //这个cluster是个adaptive类型的，它是个dubbo代理对象，它的逻辑中有段代码，
+        //org.apache.dubbo.common.URL url = directory.getUrl();//directory就是形参的directory
+        //String extName = url.getParameter("cluster", "failover");//这里默认是key为cluster的值为空，所以，默认取值为failover
+        //org.apache.dubbo.rpc.cluster.Cluster extension = (org.apache.dubbo.rpc.cluster.Cluster)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.cluster.Cluster.class).getExtension(extName);所以会去调用扩展点名称为failover的Cluster接口的实现类，即org.apache.dubbo.rpc.cluster.support.FailoverCluster的join方法
         Invoker invoker = cluster.join(directory);
         ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
         return invoker;
