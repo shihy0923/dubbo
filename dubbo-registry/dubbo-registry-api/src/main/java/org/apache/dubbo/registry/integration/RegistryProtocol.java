@@ -185,8 +185,9 @@ public class RegistryProtocol implements Protocol {
     }
 
     public void register(URL registryUrl, URL registeredProviderUrl) {
+        //同样的，得到org.apache.dubbo.registry.ListenerRegistryWrapper对象，里面包装着org.apache.dubbo.registry.nacos.NacosRegistry对象
         Registry registry = registryFactory.getRegistry(registryUrl);
-        // 调用ZookeeperRegistry的register方法
+        // 调用org.apache.dubbo.registry.support.FailbackRegistry.register方法，最终调用到org.apache.dubbo.registry.support.FailbackRegistry.register方法啊，将服务注册到nacso中去
         registry.register(registeredProviderUrl);
     }
 
@@ -197,32 +198,36 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        //入参就是org.apache.dubbo.config.invoker.DelegateProviderMetaDataInvoker，我们在DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);这行代码中包装的
         // 导出服务
         // registry://   ---> RegistryProtocol
         // zookeeper://  ---> ZookeeperRegistry
         // dubbo://      ---> DubboProtocol
         // provider://   --->
 
-        // 将registry://xxx?xx=xx&registry=zookeeper 转为---> zookeeper://xxx?xx=xx
-        URL registryUrl = getRegistryUrl(originInvoker); // zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-provider-application&dubbo=2.0.2&export=dubbo%3A%2F%2F192.168.40.17%3A20880%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddubbo-demo-provider-application%26bean.name%3DServiceBean%3Aorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.40.17%26bind.port%3D20880%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26logger%3Dlog4j%26methods%3DsayHello%26pid%3D27656%26release%3D2.7.0%26side%3Dprovider%26timeout%3D3000%26timestamp%3D1590735956489&logger=log4j&pid=27656&release=2.7.0&timestamp=1590735956479
+        //把originInvoker里面的注册中心的地址registry://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&export=dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=15796&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649584872140&version=async&pid=15796&qos.enable=false&registry=nacos&release=2.7.5&timestamp=1649584830218
+        //转换为
+        //nacos://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&export=dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=15796&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649584872140&version=async&pid=15796&qos.enable=false&release=2.7.5&timestamp=1649584830218
+
+        URL registryUrl = getRegistryUrl(originInvoker);
         // 得到服务提供者url
-        URL providerUrl = getProviderUrl(originInvoker); // dubbo://192.168.40.17:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-provider-application&bean.name=ServiceBean:org.apache.dubbo.demo.DemoService&bind.ip=192.168.40.17&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&logger=log4j&methods=sayHello&pid=27656&release=2.7.0&side=provider&timeout=3000&timestamp=1590735956489
+        //dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=15796&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649584872140&version=async
+        URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
 
+        //将服务提供者的url改为provider://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=15796&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649584872140&version=async
         // overrideSubscribeUrl是老版本的动态配置监听url，表示了需要监听的服务以及监听的类型（configurators， 这是老版本上的动态配置）
-        // 在服务提供者url的基础上，生成一个overrideSubscribeUrl，协议为provider://，增加参数category=configurators&check=false
+        // 在providerUrl的基础上，生成一个overrideSubscribeUrl，协议为provider://，增加参数category=configurators&check=false
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
 
         // 一个overrideSubscribeUrl对应一个OverrideListener，用来监听变化事件，监听到overrideSubscribeUrl的变化后，
         // OverrideListener就会根据变化进行相应处理，具体处理逻辑看OverrideListener的实现
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
-
-
         // 在这个方法里会利用providerConfigurationListener和serviceConfigurationListener去重写providerUrl
         // providerConfigurationListener表示应用级别的动态配置监听器，providerConfigurationListener是RegistyProtocol的一个属性
         // serviceConfigurationListener表示服务级别的动态配置监听器，serviceConfigurationListener是在每暴露一个服务时就会生成一个
@@ -233,17 +238,19 @@ public class RegistryProtocol implements Protocol {
         // 注意，要喝配置中心的路径区分开来，配置中心的路径是：
         // 应用：/dubbo/config/dubbo/org.apache.dubbo.demo.DemoService/dubbo.properties节点的内容
         // 全局：/dubbo/config/dubbo/dubbo.properties节点的内容
+        //shihytodo 对于nacos，这个providerUrl没什么变化
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
 
         // export invoker
-        // 根据动态配置重写了providerUrl之后，就会调用DubboProtocol或HttpProtocol去进行导出服务了
+        // 这里就只是往bounds这个对象里里面记录了originInvoker，这bounds就是为了重新导入的时候用的，在这里会进行服务导出，所谓导出就是记录当场export，启动netty服务器
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
-        // 得到注册中心-ZookeeperRegistry
+        //得到org.apache.dubbo.registry.ListenerRegistryWrapper对象，里面包装着org.apache.dubbo.registry.nacos.NacosRegistry对象
         final Registry registry = getRegistry(originInvoker);
 
-        // 得到存入到注册中心去的providerUrl,会对服务提供者url中的参数进行简化
+        // 得到真正要存入到注册中心去的providerUrl,会对服务提供者url中的参数进行简化，移除和具体服务无关的一些参数
+        //值为dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=11176&release=2.7.5&revision=async&side=provider&timestamp=1649603405541&version=async
         final URL registeredProviderUrl = getRegisteredProviderUrl(providerUrl, registryUrl);
 
         // 将当前服务提供者Invoker，以及该服务对应的注册中心地址，以及简化后的服务url存入ProviderConsumerRegTable
@@ -252,10 +259,10 @@ public class RegistryProtocol implements Protocol {
 
 
         //to judge if we need to delay publish
-        //是否需要注册到注册中心
+        //是否需要注册到注册中心，默认是ture
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
-            // 注册服务，把简化后的服务提供者url注册到registryUrl中去
+            // 注册服务，把简化后的服务提供者url注册到nacos中取
             register(registryUrl, registeredProviderUrl);
             providerInvokerWrapper.setReg(true);
         }
@@ -288,8 +295,12 @@ public class RegistryProtocol implements Protocol {
 
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
+        //key就是providerUrl这个url去掉dynamic和enabled后的toString形式
+        //原url是dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=25296&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649588667957&version=async
+        //之后是dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=25296&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649588667957&version=async
+        //少了dynamic这个参数
         String key = getCacheKey(originInvoker);
-
+        //然后放入bounds中，这bounds就是为了重新导入的时候用的。这个protocol变量的值，其实就是和Exporter<?> exporter = protocol.export(wrapperInvoker);这句代码的protocol是同一个对象，wrapperInvoker和originInvoker也是同一个对象
         return (ExporterChangeableWrapper<T>) bounds.computeIfAbsent(key, s -> {
             Invoker<?> invokerDelegate = new InvokerDelegate<>(originInvoker, providerUrl);
             // protocol属性的值是哪来的，是在SPI中注入进来的，是一个代理类
@@ -358,7 +369,11 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private Registry getRegistry(final Invoker<?> originInvoker) {
+        //得到由registry://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&export=dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=11176&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649603405541&version=async&pid=11176&qos.enable=false&registry=nacos&release=2.7.5&timestamp=1649603311504，
+        // 转换后的具体的注册中心的url，
+        // nacos://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&export=dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=11176&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649603405541&version=async&pid=11176&qos.enable=false&release=2.7.5&timestamp=1649603311504
         URL registryUrl = getRegistryUrl(originInvoker);
+        //这里用了spi，对调到org.apache.dubbo.registry.support.AbstractRegistryFactory.getRegistry(org.apache.dubbo.common.URL)方法
         return registryFactory.getRegistry(registryUrl);
     }
 

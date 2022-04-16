@@ -291,12 +291,17 @@ public class DubboProtocol extends AbstractProtocol {
 
     @Override
     public <T> Exporter<T> export(Invoker<T> invoker) throws RpcException {
+        //入参invoker是经过好几层过滤器包装的后的，最底层的invoker就是我们在DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);这行代码中生成的wrapperInvoker
+        //url的值为dubbo://10.8.0.2:20880/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=10.8.0.2&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=20004&qos.enable=false&release=2.7.5&revision=async&side=provider&timeout=30000&timestamp=1649139858547&version=async
         URL url = invoker.getUrl();
 
         // export service.
+        //这里的值为com.tuling.DemoService:async:20880
         String key = serviceKey(url);
         // 构造一个Exporter
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
+        //把export存储到单例的DubboProtocol中
+        //当消费端请求过来的时候，会在org.apache.dubbo.rpc.protocol.dubbo.DubboProtocol.getInvoker这个方法里面，从exporterMap里拿出来在这里放入的exporter
         exporterMap.put(key, exporter);
 
         //export an stub service for dispatching event
@@ -316,7 +321,7 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
-        // 开启NettyServer
+        // 服务初次暴露会开启NettyServer
         openServer(url);
 
         optimizeSerialization(url);
@@ -326,6 +331,8 @@ public class DubboProtocol extends AbstractProtocol {
 
     private void openServer(URL url) {
         // find server.
+        //key是服务提供者的ip和端口
+        //如：10.8.0.2:20880
         String key = url.getAddress(); // 获得ip地址和port， 192.168.40.17:20880
 
         // NettyClient, NettyServer
@@ -353,6 +360,7 @@ public class DubboProtocol extends AbstractProtocol {
     }
 
     private ExchangeServer createServer(URL url) {
+        //url的值为dubbo://10.8.0.2:20880/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=10.8.0.2&bind.port=20880&channel.readonly.sent=true&codec=dubbo&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&heartbeat=60000&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=20004&qos.enable=false&release=2.7.5&revision=async&side=provider&timeout=30000&timestamp=1649139858547&version=async
         url = URLBuilder.from(url)
                 // send readonly event when server closes, it's enabled by default
                 .addParameterIfAbsent(CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString())

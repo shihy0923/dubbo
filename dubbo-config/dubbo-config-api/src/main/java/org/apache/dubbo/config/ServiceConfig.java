@@ -499,11 +499,14 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void doExportUrls() {
-        // 得到url，注册服务也是一个服务，所以也会有对应的url，通过调用该url完成服务注册
+        // 得到url，里面记录了注册中心的地址，通过调用该url完成服务注册
+        //registryURLs这个里面的值为[registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&pid=20292&qos.enable=false&registry=zookeeper&release=2.7.5&timestamp=1649578877929, registry://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&pid=20292&qos.enable=false&registry=nacos&release=2.7.5&timestamp=1649578890797]
         List<URL> registryURLs = loadRegistries(true);   //
 
         // 遍历每个协议
         // 一个协议一个服务
+        //protocols里面的值是 [<dubbo:protocol name="dubbo" host="0.0.0.0" port="20881" valid="true" id="dubbo1" prefix="dubbo.protocols." />, <dubbo:protocol name="http" host="0.0.0.0" port="20882" valid="true" id="http" prefix="dubbo.protocols." />]
+        //代表了服务提供者使用哪些协议
         for (ProtocolConfig protocolConfig : protocols) {
             // path表示服务名
             // contextPath表示应用名（可配置）
@@ -653,11 +656,13 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
         // export service
         // 通过该host和port访问该服务
+        //host表示服务提供者的ip地址
         String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
+        //port表示服务提供者的端口
         Integer port = this.findConfigedPorts(protocolConfig, name, map);
         // 服务url
+        // url：dubbo://10.8.0.2:20880/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=10.8.0.2&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=15196&qos.enable=false&release=2.7.5&revision=async&side=provider&timeout=30000&timestamp=1649138810187&version=async
         URL url = new URL(name, host, port, getContextPath(protocolConfig).map(p -> p + "/" + path).orElse(path), map);
-        // url：http://192.168.40.17:80/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-annotation-provider&bean.name=ServiceBean:org.apache.dubbo.demo.DemoService&bind.ip=192.168.40.17&bind.port=80&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello&pid=285072&release=&side=provider&timestamp=1585206500409
 
         // 可以通过ConfiguratorFactory，在服务导出时候进行统一配置
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -672,25 +677,29 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             // 如果scope为none,则不会进行任何的服务导出，既不会远程，也不会本地
 
             // export to local if the config is not remote (export to remote only when config is remote)
+            //本地暴露
             if (!SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 // 如果scope不是remote,则会进行本地导出，会把当前url的protocol改为injvm，然后进行导出
                 exportLocal(url);
             }
             // export to remote if the config is not local (export to local only when config is local)
+            //远程暴露
             if (!SCOPE_LOCAL.equalsIgnoreCase(scope)) {
                 // 如果scope不是local,则会进行远程导出
-
+                //开始为每个服务遍历注册中心，比如我们为服务提供者提供了zk和nacos两个注册中心，registryURLs的值为[registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&pid=24388&qos.enable=false&registry=zookeeper&release=2.7.5&timestamp=1649582347038, registry://192.168.0.188:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&pid=24388&qos.enable=false&registry=nacos&release=2.7.5&timestamp=1649582347040]
                 if (CollectionUtils.isNotEmpty(registryURLs)) {
                     // 如果有注册中心，则将服务注册到注册中心
                     for (URL registryURL : registryURLs) {
-
+                        //拿到第一个注册中心地址信息，
+                        //registryURL的值是，即注册中心的信息。registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&pid=24388&qos.enable=false&registry=zookeeper&release=2.7.5&timestamp=1649582347038
                         //if protocol is only injvm ,not register
                         // 如果是injvm，则不需要进行注册中心注册
                         if (LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
                             continue;
                         }
 
-                        // 该服务是否是动态，对应zookeeper上表示是否是临时节点，对应dubbo中的功能就是静态服务
+                        // 该服务是否是动态，
+                        // 对应zookeeper上表示是否是临时节点，对应dubbo中的功能就是静态服务
                         url = url.addParameterIfAbsent(DYNAMIC_KEY, registryURL.getParameter(DYNAMIC_KEY));
 
                         // 基于注册中心地址的到监控中心地址，为什么是基于注册中心地址？
@@ -719,17 +728,21 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
                         // 生成一个当前服务接口的代理对象
                         // 使用代理生成一个Invoker，Invoker表示服务提供者的代理，可以使用Invoker的invoke方法执行服务
-                        // 对应的url为 registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-demo-annotation-provider&dubbo=2.0.2&export=http%3A%2F%2F192.168.40.17%3A80%2Forg.apache.dubbo.demo.DemoService%3Fanyhost%3Dtrue%26application%3Ddubbo-demo-annotation-provider%26bean.name%3DServiceBean%3Aorg.apache.dubbo.demo.DemoService%26bind.ip%3D192.168.40.17%26bind.port%3D80%26deprecated%3Dfalse%26dubbo%3D2.0.2%26dynamic%3Dtrue%26generic%3Dfalse%26interface%3Dorg.apache.dubbo.demo.DemoService%26methods%3DsayHello%26pid%3D19472%26release%3D%26side%3Dprovider%26timestamp%3D1585207994860&pid=19472&registry=zookeeper&timestamp=1585207994828
+                        // 这个invoker对应的值为interface com.tuling.DemoService -> registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=dubbo-provider-demo&dubbo=2.0.2&export=dubbo://192.168.0.105:20881/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.0.105&bind.port=20881&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=24388&qos.enable=false&release=2.7.5&revision=async&side=provider&timestamp=1649582376240&version=async&pid=24388&qos.enable=false&registry=zookeeper&release=2.7.5&timestamp=1649582347038
                         // 这个Invoker中包括了服务的实现者、服务接口类、服务的注册地址（针对当前服务的，参数export指定了当前服务）
                         // 此invoker表示一个可执行的服务，调用invoker的invoke()方法即可执行服务,同时此invoker也可用来导出
+
+                        //会调用到org.apache.dubbo.rpc.proxy.javassist.JavassistProxyFactory.getInvoker这个方法
+                        //invoker是个class org.apache.dubbo.rpc.proxy.javassist.JavassistProxyFactory$1类型的
                         Invoker<?> invoker = PROXY_FACTORY.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(EXPORT_KEY, url.toFullString()));
 
                         // DelegateProviderMetaDataInvoker也表示服务提供者，包括了Invoker和服务的配置
+                        //this的值是<dubbo:service beanName="ServiceBean:com.tuling.DemoService:async" exported="true" unexported="false" path="com.tuling.DemoService" ref="com.tuling.provider.service.AsyncDemoService@661d6bb6" prefix="dubbo.service.com.tuling.DemoService" generic="false" uniqueServiceName="com.tuling.DemoService:async" interface="com.tuling.DemoService" dynamic="true" version="async" deprecated="false" id="ServiceBean:com.tuling.DemoService:async" valid="true" />
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
-                        // 使用特定的协议来对服务进行导出，这里的协议为RegistryProtocol，导出成功后得到一个Exporter
-                        // 1. 先使用RegistryProtocol进行服务注册
-                        // 2. 注册完了之后，使用DubboProtocol进行导出
+                        //最终会调用到org.apache.dubbo.registry.integration.RegistryProtocol.export
+                        //注意，Protocol的SPI默认有三种包装类[class org.apache.dubbo.qos.protocol.QosProtocolWrapper, class org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper, class org.apache.dubbo.rpc.protocol.ProtocolListenerWrapper],
+                        //这三个包装类最终包装的是RegistryProtocol这个扩展点。在它的export()方法里面进行服务暴露，即启动netty这些，第二件事就是往nacos，zk这些注册中心注册服务
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
