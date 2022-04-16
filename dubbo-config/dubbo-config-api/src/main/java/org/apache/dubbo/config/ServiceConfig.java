@@ -767,7 +767,9 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                  * ServiceData Store
                  */
                 // 根据服务url，讲服务的元信息存入元数据中心
+                //url值为dubbo://192.168.3.12:20880/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.3.12&bind.port=20880&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=8656&qos.enable=false&release=2.7.5&revision=async&side=provider&timeout=30000&timestamp=1650087761876&version=async
                 MetadataReportService metadataReportService = null;
+                //一般是org.apache.dubbo.metadata.store.InMemoryWritableMetadataService类型的
                 if ((metadataReportService = getMetadataReportService()) != null) {
                     metadataReportService.publishProvider(url);
                 }

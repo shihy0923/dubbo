@@ -242,7 +242,7 @@ public class RegistryProtocol implements Protocol {
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
 
         // export invoker
-        // 这里就只是往bounds这个对象里里面记录了originInvoker，这bounds就是为了重新导入的时候用的，在这里会进行服务导出，所谓导出就是记录当场export，启动netty服务器
+        // 这里就只是往bounds这个对象里里面记录了originInvoker，这bounds就是为了重新导入的时候用的，在这里会进行服务导出，所谓导出就是记录export，然后启动netty服务器
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
@@ -268,9 +268,6 @@ public class RegistryProtocol implements Protocol {
         }
 
         // 针对老版本的动态配置，需要把overrideSubscribeListener绑定到overrideSubscribeUrl上去进行监听
-        // 兼容老版本的配置修改，利用overrideSubscribeListener去监听旧版本的动态配置变化
-        // 监听overrideSubscribeUrl   provider://192.168.40.17:20880/org.apache.dubbo.demo.DemoService?anyhost=true&application=dubbo-demo-annotation-provider&bean.name=ServiceBean:org.apache.dubbo.demo.DemoService&bind.ip=192.168.40.17&bind.port=20880&category=configurators&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello&pid=416332&release=&side=provider&timestamp=1585318241955
-        // 那么新版本的providerConfigurationListener和serviceConfigurationListener是在什么时候进行订阅的呢？在这两个类构造的时候
         // Deprecated! Subscribe to override rules in 2.6.x or before.
         // 老版本监听的zk路径是：/dubbo/org.apache.dubbo.demo.DemoService/configurators/override://0.0.0.0/org.apache.dubbo.demo.DemoService?category=configurators&compatible_config=true&dynamic=false&enabled=true&timeout=6000
         // 监听的是路径的内容，不是节点的内容

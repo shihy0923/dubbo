@@ -231,11 +231,13 @@ public abstract class FailbackRegistry extends AbstractRegistry {
 
     @Override
     public void register(URL url) {
+        //这里在org.apache.dubbo.registry.support.AbstractRegistry.registered这个变量里面记录下被注册的url对象
         super.register(url);
         removeFailedRegistered(url);
         removeFailedUnregistered(url);
         try {
             // Sending a registration request to the server side
+            //看这里，调用到org.apache.dubbo.registry.nacos.NacosRegistry.doRegister方法
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
@@ -296,10 +298,12 @@ public abstract class FailbackRegistry extends AbstractRegistry {
      */
     @Override
     public void subscribe(URL url, NotifyListener listener) {
+        //调用到org.apache.dubbo.registry.support.AbstractRegistry,只是在org.apache.dubbo.registry.support.AbstractRegistry.subscribed里面放入被监听的url
         super.subscribe(url, listener);
         removeFailedSubscribed(url, listener);
         try {
             // Sending a subscription request to the server side
+            //调用到org.apache.dubbo.registry.nacos.NacosRegistry.doSubscribe(org.apache.dubbo.common.URL, org.apache.dubbo.registry.NotifyListener)
             doSubscribe(url, listener);
         } catch (Exception e) {
             Throwable t = e;

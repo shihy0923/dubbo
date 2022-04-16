@@ -17,6 +17,12 @@
 package org.apache.dubbo.registry.nacos;
 
 
+import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.listener.EventListener;
+import com.alibaba.nacos.api.naming.listener.NamingEvent;
+import com.alibaba.nacos.api.naming.pojo.Instance;
+import com.alibaba.nacos.api.naming.pojo.ListView;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.URLBuilder;
 import org.apache.dubbo.common.logger.Logger;
@@ -43,28 +49,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.api.naming.listener.EventListener;
-import com.alibaba.nacos.api.naming.listener.NamingEvent;
-import com.alibaba.nacos.api.naming.pojo.Instance;
-import com.alibaba.nacos.api.naming.pojo.ListView;
-
-import static java.util.Collections.singleton;
-import static org.apache.dubbo.common.constants.CommonConstants.ANY_VALUE;
-import static org.apache.dubbo.common.constants.CommonConstants.GROUP_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.PATH_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.PROTOCOL_KEY;
-import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
-import static org.apache.dubbo.common.constants.RegistryConstants.CATEGORY_KEY;
-import static org.apache.dubbo.common.constants.RegistryConstants.CONFIGURATORS_CATEGORY;
-import static org.apache.dubbo.common.constants.RegistryConstants.CONSUMERS_CATEGORY;
-import static org.apache.dubbo.common.constants.RegistryConstants.DEFAULT_CATEGORY;
-import static org.apache.dubbo.common.constants.RegistryConstants.EMPTY_PROTOCOL;
-import static org.apache.dubbo.common.constants.RegistryConstants.PROVIDERS_CATEGORY;
-import static org.apache.dubbo.common.constants.RegistryConstants.ROUTERS_CATEGORY;
-import static org.apache.dubbo.registry.Constants.ADMIN_PROTOCOL;
-import static org.apache.dubbo.registry.nacos.NacosServiceName.valueOf;
+import static java.util.Collections.*;
+import static org.apache.dubbo.common.constants.CommonConstants.*;
+import static org.apache.dubbo.common.constants.RegistryConstants.*;
+import static org.apache.dubbo.registry.Constants.*;
+import static org.apache.dubbo.registry.nacos.NacosServiceName.*;
 
 /**
  * Nacos {@link Registry}
@@ -150,8 +139,11 @@ public class NacosRegistry extends FailbackRegistry {
 
     @Override
     public void doRegister(URL url) {
+        //serviceName的值为providers:com.tuling.DemoService:async:
         final String serviceName = getServiceName(url);
+        //根据url创建instance实例
         final Instance instance = createInstance(url);
+        //在这里真正往nacos注册任务，最终会调用到com.alibaba.nacos.client.naming.NacosNamingService.registerInstance(java.lang.String, java.lang.String, com.alibaba.nacos.api.naming.pojo.Instance)
         execute(namingService -> namingService.registerInstance(serviceName, instance));
     }
 
@@ -166,7 +158,9 @@ public class NacosRegistry extends FailbackRegistry {
 
     @Override
     public void doSubscribe(final URL url, final NotifyListener listener) {
+        //serviceNames的值为[providers:com.tuling.DemoService:async:]
         Set<String> serviceNames = getServiceNames(url, listener);
+        //进行事件发布
         doSubscribe(url, listener, serviceNames);
     }
 
@@ -175,6 +169,7 @@ public class NacosRegistry extends FailbackRegistry {
             for (String serviceName : serviceNames) {
                 List<Instance> instances = namingService.getAllInstances(serviceName);
                 notifySubscriber(url, listener, instances);
+                //在这里发布事件，并且启动nacos“推”模式，不断从nacos获取最新的配置信息
                 subscribeEventListener(serviceName, url, listener);
             }
         });
@@ -405,6 +400,17 @@ public class NacosRegistry extends FailbackRegistry {
                     notifySubscriber(url, listener, e.getInstances());
                 }
             };
+            //看这里，最终会调用到com.alibaba.nacos.client.naming.NacosNamingService.subscribe(java.lang.String, java.lang.String, java.util.List<java.lang.String>, com.alibaba.nacos.api.naming.listener.EventListener)
+            //在这里会有个广播器，com.alibaba.nacos.client.naming.NacosNamingService.eventDispatcher，在这个广播器的构造方法里面会启动一个线程，Runnable是一个com.alibaba.nacos.client.naming.core.EventDispatcher.Notifier对象，
+            //这个对象的run方法里面，死循环的从com.alibaba.nacos.client.naming.core.EventDispatcher.changedServices这个阻塞队列里面获取有变动的配置信息。然后根据服务key，从com.alibaba.nacos.client.naming.core.EventDispatcher.observerMap这个
+            //Map里面获取对应的监听器，然后执行对应监听器的方法。
+
+            //com.alibaba.nacos.client.naming.core.EventDispatcher.observerMap里面的值，是在com.alibaba.nacos.client.naming.NacosNamingService.subscribe(java.lang.String, java.lang.String, java.util.List<java.lang.String>, com.alibaba.nacos.api.naming.listener.EventListener)放里面调用com.alibaba.nacos.client.naming.core.EventDispatcher.addListener方法放入的
+
+            //com.alibaba.nacos.client.naming.core.EventDispatcher.changedServices里面的值是在com.alibaba.nacos.client.naming.NacosNamingService.subscribe(java.lang.String, java.lang.String, java.util.List<java.lang.String>, com.alibaba.nacos.api.naming.listener.EventListener)方法里面的调用到com.alibaba.nacos.client.naming.core.HostReactor.getServiceInfo方法 的时候，会启动一个线程，对应的Runnable是com.alibaba.nacos.client.naming.core.HostReactor.UpdateTask，它的run方法里面
+            //会调用com.alibaba.nacos.client.naming.core.HostReactor.updateServiceNow方法，从nacos里面获取最新的配置信息，然后进行相关的逻辑判断，如果发现提供者信息发生变动，则通过com.alibaba.nacos.client.naming.core.HostReactor.eventDispatcher放入到
+            //com.alibaba.nacos.client.naming.core.EventDispatcher.changedServices里面。
+            //eventListener这个对象，一般是org.apache.dubbo.registry.integration.RegistryProtocol.OverrideListener这个类型的包装类，最终会调用到它的org.apache.dubbo.registry.integration.RegistryProtocol.OverrideListener.notify方法。
             namingService.subscribe(serviceName, eventListener);
             nacosListeners.put(serviceName, eventListener);
         }
@@ -423,6 +429,7 @@ public class NacosRegistry extends FailbackRegistry {
             // Healthy Instances
             filterHealthyInstances(healthyInstances);
         }
+        //经过这一步，urls里面的值为empty://192.168.3.12:20880/com.tuling.DemoService?anyhost=true&application=dubbo-provider-demo&bind.ip=192.168.3.12&bind.port=20880&category=providers&check=false&deprecated=false&dubbo=2.0.2&dynamic=true&generic=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=7444&qos.enable=false&release=2.7.5&revision=async&side=provider&timeout=30000&timestamp=1650092291917&version=async
         List<URL> urls = toUrlWithEmpty(url, healthyInstances);
         NacosRegistry.this.notify(url, listener, urls);
     }

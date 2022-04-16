@@ -96,6 +96,7 @@ public class MetadataReportService {
         providerUrl = providerUrl.removeParameters(PID_KEY, TIMESTAMP_KEY, Constants.BIND_IP_KEY, Constants.BIND_PORT_KEY, TIMESTAMP_KEY);
 
         try {
+            //值为com.tuling.DemoService
             String interfaceName = providerUrl.getParameter(INTERFACE_KEY);
             if (StringUtils.isNotEmpty(interfaceName)) {
                 ClassLoader classLoader = null == Thread.currentThread().getContextClassLoader() ? this.getClass().getClassLoader() : Thread.currentThread().getContextClassLoader();
