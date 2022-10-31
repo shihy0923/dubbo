@@ -99,37 +99,10 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
      * layers, and eventually will get a <b>ProtocolFilterWrapper</b> or <b>ProtocolListenerWrapper</b>
      */
     /*
-    * package org.apache.dubbo.rpc;
-import org.apache.dubbo.common.extension.ExtensionLoader;
-public class Protocol$Adaptive implements org.apache.dubbo.rpc.Protocol {
-public void destroy()  {
-throw new UnsupportedOperationException("The method public abstract void org.apache.dubbo.rpc.Protocol.destroy() of interface org.apache.dubbo.rpc.Protocol is not adaptive method!");
-}
-public int getDefaultPort()  {
-throw new UnsupportedOperationException("The method public abstract int org.apache.dubbo.rpc.Protocol.getDefaultPort() of interface org.apache.dubbo.rpc.Protocol is not adaptive method!");
-}
-public org.apache.dubbo.rpc.Exporter export(org.apache.dubbo.rpc.Invoker arg0) throws org.apache.dubbo.rpc.RpcException {
-if (arg0 == null) throw new IllegalArgumentException("org.apache.dubbo.rpc.Invoker argument == null");
-if (arg0.getUrl() == null) throw new IllegalArgumentException("org.apache.dubbo.rpc.Invoker argument getUrl() == null");
-org.apache.dubbo.common.URL url = arg0.getUrl();
-String extName = ( url.getProtocol() == null ? "dubbo" : url.getProtocol() );
-if(extName == null) throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.Protocol) name from url (" + url.toString() + ") use keys([protocol])");
-org.apache.dubbo.rpc.Protocol extension = (org.apache.dubbo.rpc.Protocol)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.Protocol.class).getExtension(extName);
-return extension.export(arg0);
-}
-public org.apache.dubbo.rpc.Invoker refer(java.lang.Class arg0, org.apache.dubbo.common.URL arg1) throws org.apache.dubbo.rpc.RpcException {
-if (arg1 == null) throw new IllegalArgumentException("url == null");
-org.apache.dubbo.common.URL url = arg1;
-String extName = ( url.getProtocol() == null ? "dubbo" : url.getProtocol() );
-if(extName == null) throw new IllegalStateException("Failed to get extension (org.apache.dubbo.rpc.Protocol) name from url (" + url.toString() + ") use keys([protocol])");
-org.apache.dubbo.rpc.Protocol extension = (org.apache.dubbo.rpc.Protocol)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.Protocol.class).getExtension(extName);
-return extension.refer(arg0, arg1);
-}
-}
-    *
+    *AdaptiveExtension的代码见org.apache.dubbo.rpc.Protocol中的Protocol$Adaptive，是由dubbo自己生成的
     * */
-
-    private static final Protocol REF_PROTOCOL = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();//REF_PROTOCOL的结构是，dubbo生成的代理对象------>ProtocolFilterWrapper-->ProtocolListenerWrapper---->上面的代码中，根据url中的protocol属性获取对应的扩展点对象
+    //REF_PROTOCOL的结构是，dubbo生成的代理对象------>ProtocolFilterWrapper-->ProtocolListenerWrapper---->上面的dubbo自己生成的代码所代表的类的对象
+    private static final Protocol REF_PROTOCOL = ExtensionLoader.getExtensionLoader(Protocol.class).getAdaptiveExtension();
 
     /**
      * The {@link Cluster}'s implementation with adaptive functionality, and actually it will get a {@link Cluster}'s

@@ -76,6 +76,8 @@ public class NettyServer extends AbstractServer implements Server {
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
         // you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
         // the handler will be warped: MultiMessageHandler->HeartbeatHandler->handler
+        //在这里开始构造NettyServer对象，里面的会确认一些这个Netty服务的一些配置信息，比如用的哪种协议进行编解码，具体见它的父类org.apache.dubbo.remoting.transport.AbstractEndpoint.AbstractEndpoint的
+        //org.apache.dubbo.remoting.transport.AbstractEndpoint.getChannelCodec方法
         super(url, ChannelHandlers.wrap(handler, ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME)));
     }
 
@@ -105,6 +107,7 @@ public class NettyServer extends AbstractServer implements Server {
                     protected void initChannel(NioSocketChannel ch) throws Exception {
                         // FIXME: should we use getTimeout()?
                         int idleTimeout = UrlUtils.getIdleTimeout(getUrl());
+                        //在这里确认用什么协议的实现类去编解码和客户端交互的消息
                         NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyServer.this);
                         ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                                 .addLast("decoder", adapter.getDecoder())

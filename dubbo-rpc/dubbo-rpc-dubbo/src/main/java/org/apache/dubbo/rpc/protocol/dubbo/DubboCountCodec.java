@@ -46,13 +46,13 @@ public final class DubboCountCodec implements Codec2 {
         MultiMessage result = MultiMessage.create();
         do {
             Object obj = codec.decode(channel, buffer);
-            if (Codec2.DecodeResult.NEED_MORE_INPUT == obj) {
-                buffer.readerIndex(save);
+            if (Codec2.DecodeResult.NEED_MORE_INPUT == obj) {//如果返回的是NEED_MORE_INPUT，表示接受的数据被拆包或者粘包了，已经处理的数据全部放弃掉
+                buffer.readerIndex(save);//就是在这里放弃掉已经处理过的数据，从头开始
                 break;
             } else {
-                result.addMessage(obj);
+                result.addMessage(obj);//将解析好的请求报文放到message里面，其实就是个list
                 logMessageLength(obj, buffer.readerIndex() - save);
-                save = buffer.readerIndex();
+                save = buffer.readerIndex();//设置下一次从哪个下标开始读取消息。用于上面的消息不够一个包的时候，进行重置，从头开始
             }
         } while (true);
         if (result.isEmpty()) {

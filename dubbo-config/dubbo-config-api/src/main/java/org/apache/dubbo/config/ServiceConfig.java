@@ -741,7 +741,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
                         DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
                         //最终会调用到org.apache.dubbo.registry.integration.RegistryProtocol.export
-                        //注意，Protocol的SPI默认有三种包装类[class org.apache.dubbo.qos.protocol.QosProtocolWrapper, class org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper, class org.apache.dubbo.rpc.protocol.ProtocolListenerWrapper],
+                        //注意，Protocol的SPI默认有三种包装类[class org.apache.dubbo.qos.protocol.QosProtocolWrapper, class org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper, class org.apache.dubbo.rpc.protocol.ProtocolListenerWrapper], 在org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper的export方法里面给服务套上拦截器链
                         //这三个包装类最终包装的是RegistryProtocol这个扩展点。在它的export()方法里面进行服务暴露，即启动netty这些，第二件事就是往nacos，zk这些注册中心注册服务
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);

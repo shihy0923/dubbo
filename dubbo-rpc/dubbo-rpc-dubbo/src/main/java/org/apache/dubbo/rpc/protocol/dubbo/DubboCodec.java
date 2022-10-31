@@ -129,21 +129,22 @@ public class DubboCodec extends ExchangeCodec {
                 } else {
                     DecodeableRpcInvocation inv;
                     if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
-                        inv = new DecodeableRpcInvocation(channel, req, is, proto);
+                        inv = new DecodeableRpcInvocation(channel, req, is, proto);//在I/O线程中直接解码
                         inv.decode();
                     } else {
+                        //交给dubbo业务线程池解码，这里只是构造了DecodeableRpcInvocation对象，并没有真正解码，真正解码是在DecodeableRpcInvocation对象的decode()方法
                         inv = new DecodeableRpcInvocation(channel, req,
                                 new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
                     data = inv;
                 }
-                req.setData(data);
+                req.setData(data);//将DecodeableRpcInvocation作为Request的数据域
             } catch (Throwable t) {
                 if (log.isWarnEnabled()) {
                     log.warn("Decode request failed: " + t.getMessage(), t);
                 }
                 // bad request
-                req.setBroken(true);
+                req.setBroken(true);//解码失败，先做标记并存储异常
                 req.setData(t);
             }
 

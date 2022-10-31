@@ -128,6 +128,7 @@ public class RegistryProtocol implements Protocol {
     //To solve the problem of RMI repeated exposure port conflicts, the services that have been exposed are no longer exposed.
     //providerurl <--> exporter
     private final ConcurrentMap<String, ExporterChangeableWrapper<?>> bounds = new ConcurrentHashMap<>();
+
     private Cluster cluster;
     private Protocol protocol;
     private RegistryFactory registryFactory;
@@ -459,14 +460,18 @@ public class RegistryProtocol implements Protocol {
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
 
-        // 从registry://的url中获取对应的注册中心，比如zookeeper， 默认为dubbo，dubbo提供了自带的注册中心实现
-        // url由 registry:// 改变为---> zookeeper://
+        //url形参的值为registry://172.168.0.201:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-consumer-demo&dubbo=2.0.2&pid=8468&qos.enable=false&refer=application=dubbo-consumer-demo&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=8468&qos.enable=false&register.ip=192.168.3.12&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650277437165&version=default&registry=nacos&release=2.7.5&timestamp=1650277576211
+        //经过该方法后，变为
+        //nacos://172.168.0.201:8848/org.apache.dubbo.registry.RegistryService?application=dubbo-consumer-demo&dubbo=2.0.2&pid=8468&qos.enable=false&refer=application=dubbo-consumer-demo&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=8468&qos.enable=false&register.ip=192.168.3.12&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650277437165&version=default&release=2.7.5&timestamp=1650277576211
+
+        //从registry://的url中获取对应的注册中心，比如nacos， 默认为dubbo，dubbo提供了自带的注册中心实现
         url = URLBuilder.from(url)
                 .setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY))//从parameters属性中获取key为registry的值，如果用的是zk，这个值为zookeeper
                 .removeParameter(REGISTRY_KEY)//从parameters属性中删除key为registry的值
                 .build();
 
-        // 拿到注册中心实现，ZookeeperRegistry
+        // 拿到注册中心实现，其实是个包装类org.apache.dubbo.registry.ListenerRegistryWrapper
+        //它里面包装了，org.apache.dubbo.registry.nacos.NacosRegistry
         Registry registry = registryFactory.getRegistry(url);
 
         // 下面这个代码，通过过git历史提交记录是用来解决SimpleRegistry不可用的问题
@@ -475,7 +480,7 @@ public class RegistryProtocol implements Protocol {
         }
 
         // qs表示 queryString, 表示url中的参数，表示@Reference注解中消费者引入服务时所配置的参数，
-        //url的parameters属性中key为refer的属性的值为application%3Ddubbo-demo-consumer-application%26dubbo%3D2.0.2%26interface%3Dorg.apache.dubbo.demo.DemoService%26lazy%3Dfalse%26methods%3DsayHello%26pid%3D9116%26register.ip%3D192.168.3.2%26release%3D2.7.0%26side%3Dconsumer%26sticky%3Dfalse%26timeout%3D30000%26timestamp%3D1615367569601
+        //url的parameters属性中key为refer的属性的值为application=dubbo-consumer-demo&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=8468&qos.enable=false&register.ip=192.168.3.12&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650277437165&version=default
         //getParameterAndDecoded这个方法，获取这个refer这个key对应的value，并解码成map
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
 
@@ -490,7 +495,6 @@ public class RegistryProtocol implements Protocol {
         }
 
         // 这里的cluster是cluster的Adaptive对象,结构是，dubbo帮我们生成的代理对象---->MockClusterWrapper---->FailoverCluster
-        //
         return doRefer(cluster, registry, type, url);
     }
 
@@ -508,7 +512,7 @@ public class RegistryProtocol implements Protocol {
      * @return
      */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
-        // RegistryDirectory表示动态服务目录，会和注册中心的数据保持同步
+        // RegistryDirectory表示动态服务目录，会和注册中心的数据保持同步，里面包含了注册中心配置和服务url信息
         // type表示一个服务对应一个RegistryDirectory，url表示注册中心地址
         // 在消费端，最核心的就是RegistryDirectory
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
@@ -517,15 +521,17 @@ public class RegistryProtocol implements Protocol {
 
 
         // all attributes of REFER_KEY
-        // 引入服务所配置的参数
+        //从url中获取消费者端的配置参数，即{init=false, side=consumer, methods=sayHello,sayHelloAsync, release=2.7.5, dubbo=2.0.2, pid=2104, check=false, interface=com.tuling.DemoService, version=default, qos.enable=false, timeout=30000, revision=default, retries=3, application=dubbo-consumer-demo, sticky=false, timestamp=1650281564046}
         Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
 
-        // 消费者url,大概结构是consumer://192.168.3.2/org.apache.dubbo.demo.DemoService?application=dubbo-demo-consumer-application&dubbo=2.0.2&interface=org.apache.dubbo.demo.DemoService&lazy=false&methods=sayHello&pid=9580&release=2.7.0&side=consumer&sticky=false&timeout=30000&timestamp=1615442032599
+        // 消费者url,结构是consumer://192.168.3.12/com.tuling.DemoService?application=dubbo-consumer-demo&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=2104&qos.enable=false&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650281564046&version=default
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
+        //是否需要将消费者url注册到注册中心，默认是true
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
+            //往服务目录里面放入要注册到注册中心的服务端的urlconsumer://192.168.3.12/com.tuling.DemoService?application=dubbo-consumer-demo&category=consumers&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=2104&qos.enable=false&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650281564046&version=default
             directory.setRegisteredConsumerUrl(getRegisteredConsumerUrl(subscribeUrl, url));
 
-            // 向注册中心注册简化后的消费url
+            // 向注册中心注册简化后的消费url，这个和服务端注册是一套逻辑
             registry.register(directory.getRegisteredConsumerUrl());
         }
 
@@ -533,21 +539,22 @@ public class RegistryProtocol implements Protocol {
         // 路由链是动态服务目录中的一个属性，通过路由链可以过滤某些服务提供者
         directory.buildRouterChain(subscribeUrl);
 
+        //下面是兼容zk 的
         // 服务目录需要订阅的几个路径，即消费者需要订阅的几个目录，在这里回去注册中心拉去服务提供者的数据
         // 当前所引入的服务的消费应用目录：/dubbo/config/dubbo/dubbo-demo-consumer-application.configurators
         // 当前所引入的服务的动态配置目录：/dubbo/config/dubbo/org.apache.dubbo.demo.DemoService:1.1.1:g1.configurators
         // 当前所引入的服务的提供者目录：/dubbo/org.apache.dubbo.demo.DemoService/providers
         // 当前所引入的服务的老版本动态配置目录：/dubbo/org.apache.dubbo.demo.DemoService/configurators
         // 当前所引入的服务的老版本路由器目录：/dubbo/org.apache.dubbo.demo.DemoService/routers
+
+        //处理完的入参值为consumer://192.168.3.12/com.tuling.DemoService?application=dubbo-consumer-demo&check=false&dubbo=2.0.2&init=false&interface=com.tuling.DemoService&methods=sayHello,sayHelloAsync&pid=9356&qos.enable=false&release=2.7.5&retries=3&revision=default&side=consumer&sticky=false&timeout=30000&timestamp=1650282704177&version=default
+        //在这个方法里面会去确定观察者模式，去注册中心订阅服务
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
-        // 利用传进来的cluster，join得到invoker,这个cluster的结构是，dubbo的代理对象--->MockClusterWrapper----->FailoverCluster
-        //这个invoker的结构是，MockClusterInvoker---->FailoverClusterInvoker,这两个invoker都包含了directory对象，directory对象里面包含了过滤器，和DubboInvoker
-        //这个cluster是个adaptive类型的，它是个dubbo代理对象，它的逻辑中有段代码，
-        //org.apache.dubbo.common.URL url = directory.getUrl();//directory就是形参的directory
-        //String extName = url.getParameter("cluster", "failover");//这里默认是key为cluster的值为空，所以，默认取值为failover
-        //org.apache.dubbo.rpc.cluster.Cluster extension = (org.apache.dubbo.rpc.cluster.Cluster)ExtensionLoader.getExtensionLoader(org.apache.dubbo.rpc.cluster.Cluster.class).getExtension(extName);所以会去调用扩展点名称为failover的Cluster接口的实现类，即org.apache.dubbo.rpc.cluster.support.FailoverCluster的join方法
+        //会调用到org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster#join
+        //是个MockClusterInvoker对象，里面包含了org.apache.dubbo.rpc.cluster.support.FailoverClusterInvoker，
+        //也包含了服务目录，org.apache.dubbo.registry.integration.RegistryDirectory
         Invoker invoker = cluster.join(directory);
         ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
         return invoker;

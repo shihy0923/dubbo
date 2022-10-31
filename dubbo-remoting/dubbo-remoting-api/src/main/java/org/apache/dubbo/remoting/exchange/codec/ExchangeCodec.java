@@ -76,8 +76,11 @@ public class ExchangeCodec extends TelnetCodec {
 
     @Override
     public Object decode(Channel channel, ChannelBuffer buffer) throws IOException {
+        //看buffer里面有多少可读字节
         int readable = buffer.readableBytes();
+        //确定header的大小，一般是16个字节
         byte[] header = new byte[Math.min(readable, HEADER_LENGTH)];
+        //从buffer中读取，header大小的字节到header中
         buffer.readBytes(header);
         return decode(channel, buffer, readable, header);
     }
@@ -85,33 +88,38 @@ public class ExchangeCodec extends TelnetCodec {
     @Override
     protected Object decode(Channel channel, ChannelBuffer buffer, int readable, byte[] header) throws IOException {
         // check magic number.
+        //如果可读的字节数大于0且header 的第一个元素是魔法数高位，或者，可读的字节大于1且header的第二个元素是魔法数低位
+        //处理流的起始处不是Dubbo魔法数的场景
         if (readable > 0 && header[0] != MAGIC_HIGH
-                || readable > 1 && header[1] != MAGIC_LOW) {
+            || readable > 1 && header[1] != MAGIC_LOW) {
             int length = header.length;
-            if (header.length < readable) {
-                header = Bytes.copyOf(header, readable);
-                buffer.readBytes(header, length, readable - length);
+            if (header.length < readable) {//流中还有数据可以读取
+                header = Bytes.copyOf(header, readable);//为header重新分配空间，用来存储流中所有可读字节
+                buffer.readBytes(header, length, readable - length);//将流中的剩余字节读取到header中
             }
             for (int i = 1; i < header.length - 1; i++) {
                 if (header[i] == MAGIC_HIGH && header[i + 1] == MAGIC_LOW) {
-                    buffer.readerIndex(buffer.readerIndex() - header.length + i);
-                    header = Bytes.copyOf(header, i);
+                    buffer.readerIndex(buffer.readerIndex() - header.length + i);//将buffer读索引指向会Dubbo报文开头处（0xdabb）
+                    header = Bytes.copyOf(header, i);//将流起始处至下一个Dubbo报文之间的数据放到header中
                     break;
                 }
             }
+            //主要用于解析header数据，比如用于Telnet
             return super.decode(channel, buffer, readable, header);
         }
         // check length.
+        //如果读取数据长度小于16个字节，则期待更多数据
         if (readable < HEADER_LENGTH) {
             return DecodeResult.NEED_MORE_INPUT;
         }
 
         // get data length.
+        //提取头部存储的报文长度，并校验长度是否超过限制
         int len = Bytes.bytes2int(header, 12);
         checkPayload(channel, len);
 
         int tt = len + HEADER_LENGTH;
-        if (readable < tt) {
+        if (readable < tt) {//校验是否可以读取完整Dubbo报文，否则期待更多数据
             return DecodeResult.NEED_MORE_INPUT;
         }
 
@@ -119,9 +127,10 @@ public class ExchangeCodec extends TelnetCodec {
         ChannelBufferInputStream is = new ChannelBufferInputStream(buffer, len);
 
         try {
+            //解码消息体，is流是完整的 RPC 调用报文
             return decodeBody(channel, is, header);
         } finally {
-            if (is.available() > 0) {
+            if (is.available() > 0) {//如果解码过程有问题，则跳过这次RPC调用报文
                 try {
                     if (logger.isWarnEnabled()) {
                         logger.warn("Skip input stream " + is.available());
@@ -169,6 +178,7 @@ public class ExchangeCodec extends TelnetCodec {
             return res;
         } else {
             // decode request.
+            //设置请求标志位，创建Request对象。这个请求标志位是从客户端创建
             Request req = new Request(id);
             req.setVersion(Version.getProtocolVersion());
             req.setTwoWay((flag & FLAG_TWOWAY) != 0);
@@ -314,11 +324,13 @@ public class ExchangeCodec extends TelnetCodec {
                         channel.send(r);
                         return;
                     } catch (RemotingException e) {
-                        logger.warn("Failed to send bad_response info back: " + t.getMessage() + ", cause: " + e.getMessage(), e);
+                        logger.warn("Failed to send bad_response info back: " + t.getMessage() + ", cause: " +
+                                    e.getMessage(), e);
                     }
                 } else {
                     // FIXME log error message in Codec and handle in caught() of IoHanndler?
-                    logger.warn("Fail to encode response: " + res + ", send bad_response info instead, cause: " + t.getMessage(), t);
+                    logger.warn("Fail to encode response: " + res + ", send bad_response info instead, cause: " +
+                                t.getMessage(), t);
                     try {
                         r.setErrorMessage("Failed to send response: " + res + ", cause: " + StringUtils.toString(t));
                         channel.send(r);
@@ -450,11 +462,13 @@ public class ExchangeCodec extends TelnetCodec {
         encodeResponseData(out, data);
     }
 
-    protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
+    protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version)
+            throws IOException {
         encodeRequestData(out, data);
     }
 
-    protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
+    protected void encodeResponseData(Channel channel, ObjectOutput out, Object data, String version)
+            throws IOException {
         encodeResponseData(out, data);
     }
 

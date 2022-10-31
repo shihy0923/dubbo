@@ -649,6 +649,7 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
     }
 
     public void buildRouterChain(URL url) {
+        //返回一个RouterChain对象，它的builtinRouters属性的值为[org.apache.dubbo.rpc.cluster.router.mock.MockInvokersSelector@60743cdb, org.apache.dubbo.rpc.cluster.router.tag.TagRouter@c02670f, org.apache.dubbo.rpc.cluster.router.condition.config.AppRouter@71179b6f, org.apache.dubbo.rpc.cluster.router.condition.config.ServiceRouter@13bdf540]这四个
         this.setRouterChain(RouterChain.buildChain(url));
     }
 
